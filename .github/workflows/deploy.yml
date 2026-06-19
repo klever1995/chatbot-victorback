@@ -22,10 +22,10 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 3. Construir la imagen (CONTEXTO CORREGIDO)
+      # 3. Construir la imagen (CON DOCKER BUILDX CON --load)
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest -f backend/Dockerfile .
+          docker buildx build -t ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest -f backend/Dockerfile --load .
 
       # 4. Subir la imagen a Docker Hub
       - name: Push Docker image
