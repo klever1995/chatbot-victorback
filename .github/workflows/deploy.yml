@@ -22,7 +22,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest -f backend/Dockerfile .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest -f backend/Dockerfile backend/
 
       - name: Push Docker image
         run: |
@@ -41,47 +41,47 @@ jobs:
 
             if [ ! -f docker-compose.yml ]; then
               cat > docker-compose.yml << 'EOF'
-              services:
-                knowledge_postgres:
-                  image: pgvector/pgvector:pg16
-                  container_name: knowledge_bot_postgres
-                  environment:
-                    POSTGRES_USER: knowledge_user
-                    POSTGRES_PASSWORD: \${DB_PASSWORD}
-                    POSTGRES_DB: knowledge_bot_db
-                  ports:
-                    - "5437:5432"
-                  volumes:
-                    - knowledge_postgres_data:/var/lib/postgresql/data
-                  restart: always
-                knowledge_redis:
-                  image: redis:7-alpine
-                  container_name: knowledge_bot_redis
-                  ports:
-                    - "6383:6379"
-                  volumes:
-                    - knowledge_redis_data:/data
-                  restart: always
-                knowledge_backend:
-                  image: ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest
-                  container_name: knowledge_bot_backend
-                  ports:
-                    - "8005:8000"
-                  env_file:
-                    - .env
-                  environment:
-                    DATABASE_URL: postgresql://knowledge_user:\${DB_PASSWORD}@knowledge_postgres:5432/knowledge_bot_db
-                    REDIS_URL: redis://knowledge_redis:6379/0
-                  volumes:
-                    - ./uploads:/app/uploads
-                  depends_on:
-                    - knowledge_postgres
-                    - knowledge_redis
-                  restart: always
-              volumes:
-                knowledge_postgres_data:
-                knowledge_redis_data:
-              EOF
+            services:
+              knowledge_postgres:
+                image: pgvector/pgvector:pg16
+                container_name: knowledge_bot_postgres
+                environment:
+                  POSTGRES_USER: knowledge_user
+                  POSTGRES_PASSWORD: ${DB_PASSWORD}
+                  POSTGRES_DB: knowledge_bot_db
+                ports:
+                  - "5437:5432"
+                volumes:
+                  - knowledge_postgres_data:/var/lib/postgresql/data
+                restart: always
+              knowledge_redis:
+                image: redis:7-alpine
+                container_name: knowledge_bot_redis
+                ports:
+                  - "6383:6379"
+                volumes:
+                  - knowledge_redis_data:/data
+                restart: always
+              knowledge_backend:
+                image: DOCKER_USERNAME/knowledge_bot_backend:latest
+                container_name: knowledge_bot_backend
+                ports:
+                  - "8005:8000"
+                env_file:
+                  - .env
+                environment:
+                  DATABASE_URL: postgresql://knowledge_user:${DB_PASSWORD}@knowledge_postgres:5432/knowledge_bot_db
+                  REDIS_URL: redis://knowledge_redis:6379/0
+                volumes:
+                  - ./uploads:/app/uploads
+                depends_on:
+                  - knowledge_postgres
+                  - knowledge_redis
+                restart: always
+            volumes:
+              knowledge_postgres_data:
+              knowledge_redis_data:
+            EOF
             fi
 
             cat > .env << EOF
@@ -101,6 +101,6 @@ jobs:
             EOF
 
             docker pull ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest
-            docker-compose down || true
-            docker-compose up -d
+            docker compose down || true
+            docker compose up -d
             docker image prune -f
