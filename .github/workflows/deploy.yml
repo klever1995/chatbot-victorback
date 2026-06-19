@@ -4,18 +4,36 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   deploy:
-    name: Deploy to VPS
+    name: Build, Push and Deploy
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Conectarse por SSH al servidor y desplegar
-      - name: Deploy to VPS via SSH
+      # 1. Clonar el repositorio
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Login a Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 3. Construir la imagen (RUTA CORRECTA)
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest -f backend/Dockerfile backend/
+
+      # 4. Subir la imagen a Docker Hub
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest
+
+      # 5. Desplegar en el servidor vía SSH
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -23,13 +41,10 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            # Navegar al directorio del proyecto
-            mkdir -p /home/${{ secrets.SSH_USER }}/chatbot-backend
+            cd /home/${{ secrets.SSH_USER }}/chatbot-backend || mkdir -p /home/${{ secrets.SSH_USER }}/chatbot-backend
             cd /home/${{ secrets.SSH_USER }}/chatbot-backend
 
-            # Crear el archivo docker-compose.yml si no existe
             if [ ! -f docker-compose.yml ]; then
-              echo "Creando docker-compose.yml..."
               cat > docker-compose.yml << 'EOF'
               services:
                 knowledge_postgres:
@@ -44,11 +59,6 @@ jobs:
                   volumes:
                     - knowledge_postgres_data:/var/lib/postgresql/data
                   restart: always
-                  healthcheck:
-                    test: ["CMD-SHELL", "pg_isready -U knowledge_user -d knowledge_bot_db"]
-                    interval: 5s
-                    timeout: 5s
-                    retries: 5
                 knowledge_redis:
                   image: redis:7-alpine
                   container_name: knowledge_bot_redis
@@ -57,11 +67,6 @@ jobs:
                   volumes:
                     - knowledge_redis_data:/data
                   restart: always
-                  healthcheck:
-                    test: ["CMD", "redis-cli", "ping"]
-                    interval: 5s
-                    timeout: 5s
-                    retries: 5
                 knowledge_backend:
                   image: ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest
                   container_name: knowledge_bot_backend
@@ -75,10 +80,8 @@ jobs:
                   volumes:
                     - ./uploads:/app/uploads
                   depends_on:
-                    knowledge_postgres:
-                      condition: service_healthy
-                    knowledge_redis:
-                      condition: service_healthy
+                    - knowledge_postgres
+                    - knowledge_redis
                   restart: always
               volumes:
                 knowledge_postgres_data:
@@ -86,41 +89,23 @@ jobs:
               EOF
             fi
 
-            # Crear el archivo .env usando secrets de GitHub
-            echo "Creando archivo .env con secrets..."
             cat > .env << EOF
-            # OpenAI (desde secrets)
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
             OPENAI_CHAT_MODEL=gpt-4o
-
-            # Configuración de chunking
             CHUNK_SIZE=500
             CHUNK_OVERLAP=50
-
-            # Base de datos (desde secrets)
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-
-            # Email (opcional)
             SMTP_SERVER=smtp.gmail.com
             SMTP_PORT=587
             SMTP_USER=hokageshizui199@gmail.com
             SMTP_PASSWORD=cymqdnfmplurcxwc
             SMTP_FROM=hokageshizui199@gmail.com
             FRONTEND_URL=http://localhost:3000
-
-            # Groq API (desde secrets)
             GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
             EOF
 
-            # Descargar la última imagen desde Docker Hub
             docker pull ${{ secrets.DOCKER_USERNAME }}/knowledge_bot_backend:latest
-
-            # Detener y eliminar contenedores antiguos (si existen)
             docker-compose down || true
-
-            # Levantar los contenedores en segundo plano
             docker-compose up -d
-
-            # Limpiar imágenes no utilizadas para liberar espacio
             docker image prune -f
