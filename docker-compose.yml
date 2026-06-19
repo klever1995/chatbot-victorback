@@ -32,18 +32,19 @@ services:
       retries: 5
 
   knowledge_backend:
-    build: ./backend
+    # 🔥 CAMBIO 1: Usar imagen desde Docker Hub en lugar de build local
+    image: ${DOCKER_USERNAME}/knowledge_bot_backend:latest
     container_name: knowledge_bot_backend
     ports:
-      - "8005:8000"  # Cambiado de 8003 a 8005
+      - "8005:8000"
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql://knowledge_user:${DB_PASSWORD}@knowledge_postgres:5432/knowledge_bot_db
       REDIS_URL: redis://knowledge_redis:6379/0
+    # 🔥 CAMBIO 2: Eliminar el volumen ./backend:/app para que no sobrescriba el código
     volumes:
-      - ./backend:/app
-      - ./uploads:/app/uploads
+      - ./uploads:/app/uploads  # Solo persistir archivos subidos
     depends_on:
       knowledge_postgres:
         condition: service_healthy
