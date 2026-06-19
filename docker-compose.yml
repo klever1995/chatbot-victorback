@@ -1,0 +1,56 @@
+services:
+  knowledge_postgres:
+    image: pgvector/pgvector:pg16
+    container_name: knowledge_bot_postgres
+    environment:
+      POSTGRES_USER: knowledge_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: knowledge_bot_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - knowledge_postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knowledge_user -d knowledge_bot_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  knowledge_redis:
+    image: redis:7-alpine
+    container_name: knowledge_bot_redis
+    ports:
+      - "6383:6379"
+    volumes:
+      - knowledge_redis_data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  knowledge_backend:
+    build: ./backend
+    container_name: knowledge_bot_backend
+    ports:
+      - "8005:8000"  # Cambiado de 8003 a 8005
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://knowledge_user:${DB_PASSWORD}@knowledge_postgres:5432/knowledge_bot_db
+      REDIS_URL: redis://knowledge_redis:6379/0
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      knowledge_postgres:
+        condition: service_healthy
+      knowledge_redis:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  knowledge_postgres_data:
+  knowledge_redis_data:

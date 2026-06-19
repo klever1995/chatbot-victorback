@@ -1,0 +1,54 @@
+from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
+from typing import Optional
+
+class UsuarioBase(BaseModel):
+    email: EmailStr
+    nombre: str
+    rol: Optional[str] = "usuario"
+    activo: Optional[bool] = True
+    foto_url: Optional[str] = None
+    auth_provider: Optional[str] = "local"
+
+class UsuarioCreate(UsuarioBase):
+    password: str = Field(..., min_length=6)
+    empresa_id: int
+
+class UsuarioAdminCreate(BaseModel):
+    email: EmailStr
+    nombre: str
+    password: str = Field(..., min_length=6)
+    empresa_id: int
+    rol: str = "admin"
+
+class UsuarioLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UsuarioResponse(UsuarioBase):
+    id: int
+    empresa_id: int
+    ultimo_acceso: Optional[datetime] = None
+    fecha_registro: datetime
+    fecha_actualizacion: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    usuario_id: Optional[int] = None
+    empresa_id: Optional[int] = None
+    email: Optional[str] = None
+    rol: Optional[str] = None
+
+class UsuarioUpdate(BaseModel):
+    nombre: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = Field(None, min_length=6)
+    rol: Optional[str] = None
+    activo: Optional[bool] = None
+    foto_url: Optional[str] = None
