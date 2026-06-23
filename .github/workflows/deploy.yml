@@ -33,9 +33,8 @@ jobs:
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: ${{ secrets.SSH_PORT }}
+          password: ${{ secrets.SSH_PASSWORD }}   
+          port: ${{ secrets.SSH_PORT || 22 }}   
           script: |
             cd /home/${{ secrets.SSH_USER }}/chatbot-backend || mkdir -p /home/${{ secrets.SSH_USER }}/chatbot-backend
             cd /home/${{ secrets.SSH_USER }}/chatbot-backend
@@ -105,3 +104,18 @@ jobs:
             docker compose down || true
             docker compose up -d
             docker image prune -f
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
